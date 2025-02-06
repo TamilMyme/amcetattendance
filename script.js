@@ -7,10 +7,14 @@ document.addEventListener('DOMContentLoaded', () => {
     // Add event listeners
     document.getElementById('loginForm').addEventListener('submit', handleLogin);
     document.getElementById('logoutBtn').addEventListener('click', handleLogout);
+    document.getElementById('exportBtn').addEventListener('click', exportToExcel);
     
     // Set current date
     const today = new Date().toLocaleDateString();
     document.getElementById('dateInfo').textContent = `Date: ${today}`;
+
+    // Add touch support
+    document.addEventListener('touchstart', function() {}, {passive: true});
 });
 
 // Handle login submission
@@ -76,7 +80,51 @@ function createStudentListItem(student) {
         </div>
     `;
 
+    // Ensure initial state shows PR
+    const toggleBtn = div.querySelector('.toggle-btn');
+    const presentText = toggleBtn.querySelector('.present-text');
+    const absentText = toggleBtn.querySelector('.absent-text');
+    presentText.style.opacity = '1';
+    absentText.style.opacity = '0';
+
     return div;
+}
+
+// Function to export attendance to Excel (CSV)
+function exportToExcel() {
+    // Get current date in YYYY-MM-DD format
+    const today = new Date();
+    const date = today.toISOString().split('T')[0];
+    
+    // Create CSV content
+    let csvContent = "Name,Attendance Status\n";
+    
+    // Get students for current department and year
+    const yearStudents = students[currentUser.department][currentUser.year];
+    
+    // Add each student's attendance to CSV
+    yearStudents.forEach(student => {
+        const status = attendanceData.get(student.id) === 'present' ? 'PR' : 'AB';
+        csvContent += `${student.name},${status}\n`;
+    });
+    
+    // Create blob and download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement("a");
+    
+    // Create file name with department, year and date
+    const fileName = `${currentUser.department}_Year${currentUser.year}_${date}.csv`;
+    
+    // Check if browser supports download attribute
+    if (navigator.msSaveBlob) { // IE 10+
+        navigator.msSaveBlob(blob, fileName);
+    } else {
+        link.href = URL.createObjectURL(blob);
+        link.setAttribute("download", fileName);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
 }
 
 // Toggle attendance status
@@ -86,6 +134,23 @@ function toggleAttendance(studentId, toggleBtn) {
     
     attendanceData.set(studentId, newStatus);
     toggleBtn.className = `toggle-btn ${newStatus}`;
+    
+    // Update the visibility of PR/AB text
+    const presentText = toggleBtn.querySelector('.present-text');
+    const absentText = toggleBtn.querySelector('.absent-text');
+    
+    // Add smooth transition
+    if (newStatus === 'present') {
+        absentText.style.opacity = '0';
+        setTimeout(() => {
+            presentText.style.opacity = '1';
+        }, 150);
+    } else {
+        presentText.style.opacity = '0';
+        setTimeout(() => {
+            absentText.style.opacity = '1';
+        }, 150);
+    }
     
     updateAbsentList();
 }
